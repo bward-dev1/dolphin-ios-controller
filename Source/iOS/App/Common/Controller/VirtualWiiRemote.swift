@@ -57,6 +57,10 @@ import UIKit
   private let hideStateLock = NSLock()
   private var lastHidden = false
 
+  /// Whether a pointer position has been written since the last time it was parked. Touched only
+  /// from the CoreMotion delivery queue, which is serial, so it needs no lock.
+  private var wrotePointer = false
+
   /// ciface::iOS::InputBackend::PopulateDevices registers eight Touchscreen devices: 0-3 are
   /// GameCube pads, 4-7 are Wii Remotes. So slots 1-4 are ports 4-7.
   @objc public init(slot: Int, presentation: WiiRemotePresentation) {
@@ -255,6 +259,7 @@ import UIKit
   /// horizontal one is not. This is the same trick TCWiiPad already uses when it writes
   /// `[y, y, x, x]` starting at wiiInfrared + 1 -- there, y arrives in UIKit's y-down space, so
   /// no negation is needed and none appears.
+  ///
   /// `overshoot` is PointerSolution.overshoot: 0 at the centre, 1 at an edge, more beyond.
   @objc public func submitPointer(x: Double, y: Double, overshoot: Double) {
     let horizontal = Float(x)
@@ -322,7 +327,23 @@ import UIKit
     submitIMU(motion, orientation: motionOrientation(for: snapshot))
 
     if let solution = solution {
+      wrotePointer = true
+
       submitPointer(x: solution.x, y: solution.y, overshoot: solution.overshoot)
+    } else if wrotePointer {
+      // Nothing to solve any more -- the pointer was switched off, or the calibration was dropped
+      // by a presentation change. Just stopping would leave the IR axes pegged wherever they last
+      // landed, and the game's cursor stuck there: StateManager holds the last value written, so
+      // "write nothing" reads as "keep pointing there forever". Park it at the centre and hide it
+      // once instead.
+      //
+      // Done here, on the motion queue, rather than from the setter that turned the pointer off.
+      // ciface::iOS::StateManager has no internal locking at all (see StateManager.cpp -- plain
+      // std::map writes), so every Beta pointer write is kept on this one queue rather than adding
+      // a second writing thread.
+      wrotePointer = false
+
+      submitPointer(x: 0, y: 0, overshoot: .infinity)
     }
   }
 
