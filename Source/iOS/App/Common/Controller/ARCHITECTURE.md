@@ -192,9 +192,11 @@ same port, which is exactly why the emulator can't tell them apart.
   - `deviceFront` — top edge centre, normal `+y_device`
   - `cameraTracking` — reserved; falls back to `appleLogo` until a tracker exists
 
-Device geometry (screen size, thickness, logo offset) comes from a small table keyed off the
-existing `DeviceProfile`, with a generic fallback. Getting the logo offset slightly wrong
-costs a small constant parallax error, not a wrong direction, so a fallback is acceptable.
+Device geometry (screen size, thickness, logo offset) comes from a documented per-family
+approximation rather than a model table — see `DeviceGeometry.detect`. Getting the logo offset
+slightly wrong costs a small constant parallax error, not a wrong direction, so an
+approximation is acceptable. Part 3 quantifies it: 0.28% of a half-screen-width at TV
+distances.
 
 ### Smart orientation
 
@@ -213,12 +215,77 @@ when Beta is on and a display appears mid-session, offer "Use TV Mode?" once per
 devices. Every slot is a `VirtualWiiRemote` writing to its own `StateManager` controller id,
 so the mapping stays "one Wii Remote interface per slot" from the emulator's side.
 
-## Part 3 — Order of work
+## Part 3 — What was built, and what the design got wrong
 
-1. `ControllerBetaGate` + Settings row. Beta off = no-op. *(own commit)*
-2. `VirtualWiiRemote` + `ApplePointerGeometry` + `DeviceGeometry` (pure model, unit-testable,
-   not yet wired to anything).
-3. Presentation selector + the five presentations, cheapest first (TV first: the display
-   plumbing already exists).
-4. Multi-remote registry.
-5. Sensor-bar calibration visualiser, if time allows.
+Written after the fact. Part 2 above is the design as planned; this is where reality diverged.
+
+### Landed
+
+| Commit | What |
+| --- | --- |
+| `184eb4b` | `DOLControllerBetaGate` + `Main.iOS.ControllerBetaEnabled` + the Settings row |
+| `161d909` | `VirtualWiiRemote`, `ApplePointerSolver`, `DeviceGeometry`, the mode enums, `PointerGeometryTests` |
+| `4dfc977` | `DOLControllerBetaSettings` and the full Beta settings screen |
+| `c1c61d2` | `VirtualWiiRemoteMotion`, `ControllerBetaCoordinator`, the gate biting in `EmulationiOSViewController` |
+| `cb4d275` | `VirtualWiiRemoteRegistry` and the Wii Remotes UI |
+
+### Three things the design got wrong, caught by `PointerGeometryTests`
+
+Keeping the geometry free of CoreMotion (one conversion at the boundary in
+`VirtualWiiRemote.ingest`) meant it could be compiled and executed as plain Swift on a machine
+with no iOS SDK. That paid for itself immediately.
+
+1. **Modelling the on-device presentations against the device's literal screen at arm's
+   length.** Wrong twice over. Physically incoherent — if the device *is* the screen, rotating
+   it rotates the target, so there is nothing fixed to aim at and the real model is "wrist
+   rotation moves the cursor, relative to a neutral hold". And numerically backwards: a 10.9"
+   iPad at 40 cm subtends a **14.8°** half-angle, *wider* than a 50" TV at 2.5 m (**12.5°**), so
+   it would have made aiming at the screen in your hands harder than aiming across the room.
+   Replaced with `SensorBarModel.handheld`, an explicit comfort sweep using Dolphin's own
+   defaults for this exact job, halved — `Touchscreen.ini` ships `IR/Total Yaw = 25` and
+   `IR/Total Pitch = 20`.
+
+2. **"Rotate by exactly the half-FOV and the pointer lands exactly on the edge" is false for
+   the Apple logo.** The logo is 7 mm behind the screen plane, so yawing the device swings it
+   ~1.5 mm sideways and that lands directly on the hit point; the edge arrives **0.28% early**.
+   Isolated by a zero-thickness geometry that *does* land at exactly 1.0. This is the whole
+   reason the emitter is modelled as a position and not just a direction, and it is why the
+   coarse `DeviceGeometry` table is defensible: the error is parallax, never direction.
+
+3. **`IR/Hide` had no hysteresis.** Players park the pointer on menu borders and screen corners
+   — i.e. right at the boundary — where hand tremor alone crosses it repeatedly, and toggling
+   `IR/Hide` at the IMU's 200 Hz would strobe the game's cursor. `PointerSolution` now reports
+   the pre-clamp `overshoot` and `VirtualWiiRemote` runs a Schmitt trigger on it.
+
+### Deliberately not built
+
+- **Per-presentation overlay layouts.** The presentations drive geometry, orientation and
+  pointer source, and the coordinator tells its delegate when the active one changes — but the
+  five presentations still share the stock `TCWiiPad`/`TCSidewaysWiiPad` xibs. Bespoke overlays
+  are a pure-UIKit job, and with no Xcode on the build machine there is no way to see, let
+  alone verify, a layout. Writing five untested xibs would be volume, not progress.
+- **Button-mapping profiles for slots 2–4.** The registry binds a device to a port; which of
+  its buttons is Wii Remote A stays with Dolphin's existing Mapping screen, which already
+  handles arbitrary devices. Hand-writing an MFi-to-Wiimote INI with no hardware to test on
+  would be a guess dressed up as a feature.
+- **Camera tracking.** `WiiRemotePointerSource.cameraTracking` exists and resolves to
+  `appleLogo`, so selecting it can never leave a player with a dead pointer. No tracker.
+- **The sensor-bar calibration visualiser.** Nice-to-have, same UIKit problem as the overlays.
+
+### Verification status
+
+- `PointerGeometryTests` — **27 cases, run, 0 failures.** Real execution, off-device.
+- Everything else — **written, not verified.** No Xcode on the build machine (Command Line
+  Tools only, so no iOS SDK), so none of the Objective-C++ or UIKit code has been compiled.
+
+### The one assumption that needs hardware
+
+`worldFromDevice` treats `CMAttitude.rotationMatrix` as **device → reference**. This is the
+convention in which a device lying flat on its back has the identity matrix and
+`CMDeviceMotion.gravity` reads `(0, 0, -1)` in both frames, and it is the convention behind the
+usual "aim direction = `rotationMatrix * (0,0,-1)`" recipe. It has **not** been confirmed on a
+device.
+
+If it is backwards, the symptom is a pointer that responds to aiming but along mirrored or
+swapped axes, and the fix is to transpose in that one function — every vector the solver
+compares passes through it.
