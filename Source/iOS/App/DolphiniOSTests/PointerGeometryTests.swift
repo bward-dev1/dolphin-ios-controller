@@ -340,6 +340,59 @@ class PointerGeometryTests: XCTestCase {
     XCTAssertGreaterThan(abs(handheld.x), abs(onTV.x))
   }
 
+  // MARK: - Cursor visibility hysteresis
+
+  func testGateStartsVisible() {
+    var gate = PointerVisibilityGate()
+
+    XCTAssertFalse(gate.isHidden)
+    XCTAssertNil(gate.update(overshoot: 0), "no change means no write to the emulator")
+  }
+
+  func testGateHidesOnlyOnceClearlyOutside() {
+    var gate = PointerVisibilityGate()
+
+    XCTAssertNil(gate.update(overshoot: 1.0), "exactly on the edge is on screen")
+    XCTAssertNil(gate.update(overshoot: 1.05), "inside the hysteresis band, still visible")
+    XCTAssertNil(gate.update(overshoot: PointerVisibilityGate.hideAbove),
+                 "the hide level itself is inclusive-visible")
+    XCTAssertEqual(gate.update(overshoot: 1.2), true)
+    XCTAssertTrue(gate.isHidden)
+  }
+
+  func testGateStaysHiddenUntilFullyBackInside() {
+    var gate = PointerVisibilityGate()
+    XCTAssertEqual(gate.update(overshoot: 5.0), true)
+
+    XCTAssertNil(gate.update(overshoot: 1.05), "back inside the band but not on screen: stay hidden")
+    XCTAssertNil(gate.update(overshoot: 1.0001))
+    XCTAssertEqual(gate.update(overshoot: 1.0), false, "at the edge counts as back on screen")
+    XCTAssertFalse(gate.isHidden)
+  }
+
+  func testGateDoesNotStrobeAtTheBoundary() {
+    // The bug this exists to prevent. Hand tremor jitters the pointer either side of the screen
+    // edge; at 200 Hz a single threshold would toggle IR/Hide on most of these samples and the
+    // game's cursor would flicker. Across a whole tremor sequence the gate must emit nothing.
+    var gate = PointerVisibilityGate()
+    let tremor = [0.999, 1.0, 1.001, 0.998, 1.002, 1.0, 0.9995, 1.0005, 1.01, 0.99]
+
+    var writes = 0
+    for sample in tremor where gate.update(overshoot: sample) != nil {
+      writes += 1
+    }
+
+    XCTAssertEqual(writes, 0, "a pointer resting on the edge must not toggle IR/Hide at all")
+    XCTAssertFalse(gate.isHidden)
+  }
+
+  func testGateHandlesAMissedSolution() {
+    var gate = PointerVisibilityGate()
+
+    XCTAssertEqual(gate.update(overshoot: PointerSolution.missed.overshoot), true,
+                   "infinite overshoot must hide, not produce a comparison that quietly fails")
+  }
+
   // MARK: - Presentation table
 
   func testPresentationTable() {

@@ -48,14 +48,14 @@ import UIKit
   private let solver: ApplePointerSolver
   private let geometry: DeviceGeometry
 
-  /// Whether the last solved pointer was off-screen, so `IR/Hide` is only written when it
-  /// changes rather than on every one of 200 samples a second.
+  /// Decides when to write `IR/Hide`, with hysteresis. See PointerVisibilityGate for why a single
+  /// threshold is not good enough.
   ///
   /// Its own lock rather than the configuration lock: `ingest` deliberately releases that lock
   /// before submitting, and reusing it here would make submitPointer unsafe to call from any
   /// future path that already holds it (NSLock is not recursive).
   private let hideStateLock = NSLock()
-  private var lastHidden = false
+  private var visibility = PointerVisibilityGate()
 
   /// Whether a pointer position has been written since the last time it was parked. Touched only
   /// from the CoreMotion delivery queue, which is serial, so it needs no lock.
@@ -279,33 +279,12 @@ import UIKit
     }
   }
 
-  /// Hide once the pointer is clearly outside the screen, but don't show it again until it is
-  /// fully back inside: a Schmitt trigger, not a threshold.
-  ///
-  /// Without the gap between the two levels this strobes. A single `abs(x) <= 1` boundary is
-  /// exactly where players park the pointer -- on menu borders, at screen corners -- and there it
-  /// flips on floating-point noise, at the IMU's 200 Hz, toggling the game's cursor visibility
-  /// with it. The equality case is the same trap: a pointer resting precisely on an edge is on
-  /// the screen, so both comparisons here are inclusive.
-  ///
-  /// Returns nil when nothing changed, so the common case writes nothing at all.
-  private static let hideAboveOvershoot = 1.08
-  private static let showAtOrBelowOvershoot = 1.0
-
+  /// nil when the visibility didn't change, so the common case writes nothing at all.
   private func updateHiddenState(overshoot: Double) -> Bool? {
     hideStateLock.lock()
     defer { hideStateLock.unlock() }
 
-    let hidden = lastHidden
-      ? overshoot > VirtualWiiRemote.showAtOrBelowOvershoot
-      : overshoot > VirtualWiiRemote.hideAboveOvershoot
-
-    guard hidden != lastHidden else {
-      return nil
-    }
-
-    lastHidden = hidden
-    return hidden
+    return visibility.update(overshoot: overshoot)
   }
 
   // MARK: - Motion

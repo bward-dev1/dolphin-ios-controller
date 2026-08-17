@@ -110,6 +110,46 @@ public struct PointerSolution {
   public static let missed = PointerSolution(x: 0, y: 0, overshoot: .infinity)
 }
 
+/// Decides when the emulated cursor should hide, with hysteresis.
+///
+/// A single threshold strobes. Players park the pointer on menu borders and at screen corners --
+/// i.e. right at the boundary -- where hand tremor alone crosses it repeatedly, and the decision is
+/// re-taken at the IMU's 200 Hz. Toggling `IR/Hide` that fast would make the game's cursor flicker.
+/// So: hide only once clearly outside, and don't show again until fully back inside.
+///
+/// Its own type, in the platform-independent layer, rather than a pair of vars inside
+/// VirtualWiiRemote: a state machine whose whole purpose is what it does at a boundary is worth
+/// being able to assert on, and VirtualWiiRemote can't be reached off-device.
+public struct PointerVisibilityGate {
+  /// Hide once the pointer is more than this far outside the screen. The 8% gap from the show
+  /// level is the hysteresis band -- wide enough to swallow tremor, narrow enough that deliberately
+  /// aiming off-screen still hides the cursor promptly.
+  public static let hideAbove = 1.08
+
+  /// Show again at or below this. Inclusive: a pointer resting exactly on an edge is on the screen.
+  public static let showAtOrBelow = 1.0
+
+  public private(set) var isHidden = false
+
+  public init() {}
+
+  /// Returns the new hidden state when it changed, or nil when nothing changed -- so the common
+  /// case writes nothing to the emulator at all.
+  public mutating func update(overshoot: Double) -> Bool? {
+    let hidden = isHidden
+      ? overshoot > PointerVisibilityGate.showAtOrBelow
+      : overshoot > PointerVisibilityGate.hideAbove
+
+    guard hidden != isHidden else {
+      return nil
+    }
+
+    isHidden = hidden
+
+    return hidden
+  }
+}
+
 // Turns device attitude into an absolute IR pointer position, for a chosen emitter on the
 // device -- the Apple logo, the tip of a virtual remote, or the top edge.
 //
