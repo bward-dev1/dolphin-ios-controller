@@ -22,6 +22,7 @@ class ControllerBetaSettingsViewController: UITableViewController {
     case pointerSource
     case orientation
     case tv
+    case remotes
   }
 
   private enum Mode: Int, CaseIterable {
@@ -68,6 +69,16 @@ class ControllerBetaSettingsViewController: UITableViewController {
 
     title = "Controller"
     tableView.register(UITableViewCell.self, forCellReuseIdentifier: "Cell")
+  }
+
+  override func viewWillAppear(_ animated: Bool) {
+    super.viewWillAppear(animated)
+
+    // The slot picker pushed from the Wii Remotes section writes straight to the registry, and
+    // controllers connect and disconnect while this screen sits open, so the rows are rebuilt on
+    // every appearance rather than only on load.
+    VirtualWiiRemoteRegistry.shared().refresh()
+    tableView.reloadData()
   }
 
   // MARK: - Current values
@@ -120,6 +131,8 @@ class ControllerBetaSettingsViewController: UITableViewController {
       return WiiRemoteOrientationLock.allCases.count
     case .tv:
       return TVRow.allCases.count
+    case .remotes:
+      return VirtualWiiRemoteRegistry.shared().slots.count
     case nil:
       return 0
     }
@@ -132,6 +145,7 @@ class ControllerBetaSettingsViewController: UITableViewController {
     case .pointerSource: return "Pointer Source"
     case .orientation: return "Lock Wii Remote Orientation"
     case .tv: return "TV"
+    case .remotes: return "Wii Remotes"
     case nil: return nil
     }
   }
@@ -156,6 +170,10 @@ class ControllerBetaSettingsViewController: UITableViewController {
       return "Screen size and viewing distance are what turn a wrist rotation into a fraction of "
         + "the screen, and nothing on the device can measure them. A bigger screen or a shorter "
         + "distance means you move less to reach the edges."
+    case .remotes:
+      return "This device is always Wii Remote 1. Remotes 2 to 4 can be a game controller, or "
+        + "another device running the Remote Controller screen on the same network. The game "
+        + "can't tell the difference between any of them."
     case nil:
       return nil
     }
@@ -207,11 +225,46 @@ class ControllerBetaSettingsViewController: UITableViewController {
     case .tv:
       configureTVRow(cell, row: TVRow(rawValue: indexPath.row))
 
+    case .remotes:
+      configureRemoteRow(cell, at: indexPath.row)
+
     case nil:
       break
     }
 
     return cell
+  }
+
+  private func configureRemoteRow(_ cell: UITableViewCell, at row: Int) {
+    let slots = VirtualWiiRemoteRegistry.shared().slots
+
+    guard row < slots.count else {
+      return
+    }
+
+    let slot = slots[row]
+
+    var config = UIListContentConfiguration.subtitleCell()
+    config.text = "Wii Remote \(slot.slot)"
+
+    // Says "not connected" rather than just naming the device when the device isn't actually there.
+    // A slot bound to a controller that's switched off looks identical to a working one otherwise,
+    // and that's precisely the state someone opens this screen to diagnose.
+    if slot.deviceQualifier != nil && !slot.isConnected {
+      config.secondaryText = "\(slot.displayName) \u{2014} not connected"
+    } else {
+      config.secondaryText = slot.displayName
+    }
+
+    cell.contentConfiguration = config
+
+    // Slot 1 is permanently this device, so there is nothing to choose and no disclosure arrow.
+    if slot.slot == 1 {
+      cell.accessoryType = .none
+      cell.selectionStyle = .none
+    } else {
+      cell.accessoryType = .disclosureIndicator
+    }
   }
 
   private func configure(_ cell: UITableViewCell, title: String, subtitle: String?, selected: Bool) {
@@ -301,6 +354,22 @@ class ControllerBetaSettingsViewController: UITableViewController {
 
     case .tv:
       didSelectTVRow(TVRow(rawValue: indexPath.row), at: indexPath)
+
+    case .remotes:
+      let slots = VirtualWiiRemoteRegistry.shared().slots
+
+      guard indexPath.row < slots.count else {
+        return
+      }
+
+      let slot = slots[indexPath.row].slot
+
+      guard slot > 1 else {
+        return
+      }
+
+      navigationController?.pushViewController(
+        ControllerBetaRemoteSlotViewController(slot: slot), animated: true)
 
     case nil:
       break

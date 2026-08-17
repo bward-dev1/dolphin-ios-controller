@@ -20,6 +20,7 @@
 #import "OptimizeSettingsViewController.h"
 #import "UpdateNoticeViewController.h"
 #import "UpdateRequiredNoticeViewController.h"
+#import "VirtualWiiRemoteRegistry.h"
 
 #if TARGET_OS_IOS
 #import "DOLUIKitSwitch.h"
