@@ -292,11 +292,11 @@ class ControllerBetaSettingsViewController: UITableViewController {
     switch row {
     case .diagonal:
       config.text = "Screen Size"
-      config.secondaryText = String(format: "%.0f in", DOLControllerBetaSettings.tvDiagonalInches)
+      config.secondaryText = String(format: "%.0f in", Double(DOLControllerBetaSettings.tvDiagonalInches))
       cell.accessibilityHint = "Changes to the next size"
     case .distance:
       config.text = "Viewing Distance"
-      config.secondaryText = String(format: "%.1f m", DOLControllerBetaSettings.tvDistanceMetres)
+      config.secondaryText = String(format: "%.1f m", Double(DOLControllerBetaSettings.tvDistanceMetres))
       cell.accessibilityHint = "Changes to the next distance"
     case .widescreen:
       config.text = "Aspect Ratio"

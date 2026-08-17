@@ -2,7 +2,9 @@ name: Build
 
 on:
   push:
-    branches: [ master, 'feature/**' ]
+    # 'feat/**' as well as 'feature/**': both prefixes are in use on this fork, and a work branch
+    # that silently never builds is worse than no CI, because it looks like it passed.
+    branches: [ master, 'feature/**', 'feat/**' ]
   pull_request:
     branches: [ master ]
   workflow_dispatch: {}
