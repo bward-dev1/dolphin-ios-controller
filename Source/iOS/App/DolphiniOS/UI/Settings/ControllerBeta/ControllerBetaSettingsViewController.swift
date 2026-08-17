@@ -74,10 +74,17 @@ class ControllerBetaSettingsViewController: UITableViewController {
   override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
 
-    // The slot picker pushed from the Wii Remotes section writes straight to the registry, and
-    // controllers connect and disconnect while this screen sits open, so the rows are rebuilt on
-    // every appearance rather than only on load.
-    VirtualWiiRemoteRegistry.shared().refresh()
+    // Guarded, not unconditional. In Normal mode the Wii Remotes section isn't shown at all, and
+    // touching the registry would construct its singleton and call
+    // g_controller_interface.RefreshDevices() for a section nobody can see -- which is exactly the
+    // "Beta off constructs nothing" rule in ControllerBetaGate.h.
+    if isBeta {
+      // The slot picker pushed from the Wii Remotes section writes straight to the registry, and
+      // controllers connect and disconnect while this screen sits open, so the rows are rebuilt on
+      // every appearance rather than only on load.
+      VirtualWiiRemoteRegistry.shared().refresh()
+    }
+
     tableView.reloadData()
   }
 
