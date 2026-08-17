@@ -10,13 +10,7 @@ import Foundation
 //   * which overlay the player touches,
 //   * which physical axis of the device counts as "forward" (via defaultPointerSource),
 //   * whether the game renders on this device or on the TV.
-@objc public enum WiiRemotePresentation: Int, CaseIterable {
-  // Spelled out rather than left to Swift's CaseIterable synthesis: @objc enums and synthesised
-  // allCases have a fraught history, and an explicit list costs nothing and always compiles.
-  public static let allCases: [WiiRemotePresentation] = [
-    .normal, .onDevicePortrait, .onDeviceLandscape, .tvPortrait, .tvLandscape,
-  ]
-
+@objc public enum WiiRemotePresentation: Int {
   /// Conventional Wii Remote. IMU motion, on-screen Wii Remote buttons, and a virtual IR
   /// emitter at the front/end of a virtual remote laid along the device.
   case normal = 0
@@ -117,11 +111,7 @@ import Foundation
 // Which point on the device emits the virtual IR ray, and which way it faces. Selectable
 // because there is no single right answer: it depends on how the player is holding the thing
 // and what they think they're aiming.
-@objc public enum WiiRemotePointerSource: Int, CaseIterable {
-  public static let allCases: [WiiRemotePointerSource] = [
-    .standardVirtualRemote, .appleLogo, .deviceFront, .cameraTracking,
-  ]
-
+@objc public enum WiiRemotePointerSource: Int {
   /// The front tip of a virtual Wii Remote laid along the device's long axis, aiming out of the
   /// top edge. What a real remote does.
   case standardVirtualRemote = 0
@@ -199,10 +189,27 @@ import Foundation
   }
 }
 
-// Smart orientation: follow the device unless the player has pinned it.
-@objc public enum WiiRemoteOrientationLock: Int, CaseIterable {
-  public static let allCases: [WiiRemoteOrientationLock] = [.auto, .portrait, .landscape]
+// Bridge for the display strings above.
+//
+// The strings live on the enums where they belong, but a Swift `@objc enum` exposes only its cases
+// to Objective-C -- computed properties and methods don't cross. The in-game menu is Objective-C++,
+// so it needs this. Duplicating the strings on the ObjC side instead would guarantee they drift.
+@objc public class ControllerBetaNaming: NSObject {
+  @objc public static func displayName(for presentation: WiiRemotePresentation) -> String {
+    return presentation.displayName
+  }
 
+  @objc public static func summary(for presentation: WiiRemotePresentation) -> String {
+    return presentation.summary
+  }
+
+  @objc public static func displayName(forPointerSource source: WiiRemotePointerSource) -> String {
+    return source.displayName
+  }
+}
+
+// Smart orientation: follow the device unless the player has pinned it.
+@objc public enum WiiRemoteOrientationLock: Int {
   case auto = 0
   case portrait = 1
   case landscape = 2
@@ -213,5 +220,30 @@ import Foundation
     case .portrait: return "Portrait"
     case .landscape: return "Landscape"
     }
+  }
+}
+
+// CaseIterable is declared out here, with an explicit list, rather than on the enum declarations.
+//
+// Two reasons, both about not relying on anything subtle in an @objc enum: a conformance in an
+// extension with a computed `allCases` is unambiguously legal, whereas a static stored property
+// inside an @objc enum plus synthesised conformance is the kind of thing that compiles on one
+// toolchain and not the next. And an explicit list means adding a case is a compile error here
+// rather than a silently-missing row in the settings and in-game menus that iterate these.
+extension WiiRemotePresentation: CaseIterable {
+  public static var allCases: [WiiRemotePresentation] {
+    return [.normal, .onDevicePortrait, .onDeviceLandscape, .tvPortrait, .tvLandscape]
+  }
+}
+
+extension WiiRemotePointerSource: CaseIterable {
+  public static var allCases: [WiiRemotePointerSource] {
+    return [.standardVirtualRemote, .appleLogo, .deviceFront, .cameraTracking]
+  }
+}
+
+extension WiiRemoteOrientationLock: CaseIterable {
+  public static var allCases: [WiiRemoteOrientationLock] {
+    return [.auto, .portrait, .landscape]
   }
 }

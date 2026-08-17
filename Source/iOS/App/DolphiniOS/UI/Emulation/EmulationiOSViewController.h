@@ -7,7 +7,7 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface EmulationiOSViewController : EmulationViewController <UIDocumentPickerDelegate>
+@interface EmulationiOSViewController : EmulationViewController <UIDocumentPickerDelegate, ControllerBetaCoordinatorDelegate>
 
 @property (weak, nonatomic) IBOutlet NSLayoutConstraint* metalHalfConstraint;
 @property (weak, nonatomic) IBOutlet NSLayoutConstraint* metalBottomConstraint;

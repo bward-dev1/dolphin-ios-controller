@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0B131566B5262C551719ADD8 /* ControllerBetaCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7C02F5D1AC892497F3F1BFB /* ControllerBetaCoordinator.swift */; };
+		421E1B65F49D5D566407E6BC /* VirtualWiiRemoteMotion.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA5CC745E886777E5EDB1987 /* VirtualWiiRemoteMotion.swift */; };
 		A180FF1AB9F5D912E6AD557B /* ControllerBetaSettings.mm in Sources */ = {isa = PBXBuildFile; fileRef = 5B1C4172F81DE196BD4D6F75 /* ControllerBetaSettings.mm */; };
 		6B3AAFC749FAB3E2D697ADB4 /* PointerGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3D1154A78E563006237D524 /* PointerGeometryTests.swift */; };
 		970DB44DC756E160EF864686 /* VirtualWiiRemote.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3683A2A34DA470714BDDC2BE /* VirtualWiiRemote.swift */; };
@@ -284,6 +286,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		F7C02F5D1AC892497F3F1BFB /* ControllerBetaCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerBetaCoordinator.swift; sourceTree = "<group>"; };
+		EA5CC745E886777E5EDB1987 /* VirtualWiiRemoteMotion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualWiiRemoteMotion.swift; sourceTree = "<group>"; };
 		5B1C4172F81DE196BD4D6F75 /* ControllerBetaSettings.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ControllerBetaSettings.mm; sourceTree = "<group>"; };
 		53360D113EF168D250B62BEA /* ControllerBetaSettings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ControllerBetaSettings.h; sourceTree = "<group>"; };
 		D3D1154A78E563006237D524 /* PointerGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointerGeometryTests.swift; sourceTree = "<group>"; };
@@ -2046,6 +2050,8 @@
 				3683A2A34DA470714BDDC2BE /* VirtualWiiRemote.swift */,
 				53360D113EF168D250B62BEA /* ControllerBetaSettings.h */,
 				5B1C4172F81DE196BD4D6F75 /* ControllerBetaSettings.mm */,
+				EA5CC745E886777E5EDB1987 /* VirtualWiiRemoteMotion.swift */,
+				F7C02F5D1AC892497F3F1BFB /* ControllerBetaCoordinator.swift */,
 			);
 			path = Controller;
 			sourceTree = "<group>";
@@ -2370,6 +2376,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0B131566B5262C551719ADD8 /* ControllerBetaCoordinator.swift in Sources */,
+				421E1B65F49D5D566407E6BC /* VirtualWiiRemoteMotion.swift in Sources */,
 				A180FF1AB9F5D912E6AD557B /* ControllerBetaSettings.mm in Sources */,
 				970DB44DC756E160EF864686 /* VirtualWiiRemote.swift in Sources */,
 				A5C8756782DF1FF56F7D8C26 /* ApplePointerSolver.swift in Sources */,

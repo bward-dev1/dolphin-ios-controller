@@ -46,6 +46,16 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
   DOLEmulationVisibleTouchPad _visibleTouchPad;
   int _stateSlot;
   bool _didApplyPreGameTVCalibration;
+
+  // True only once the Beta controller has actually been started for this session.
+  //
+  // Every Beta branch in this file keys off this ivar rather than re-reading
+  // DOLControllerBetaGate, for two reasons. It stays correct if starting Beta *failed* (a device
+  // with no fused attitude falls back to the stock motion path, and must then keep behaving like
+  // Normal mode for the rest of the session), and it means the Normal path never so much as
+  // touches ControllerBetaCoordinator -- reading `.shared` would construct the singleton, which
+  // rule 1 of the gate forbids.
+  bool _usingBetaController;
 }
 
 - (void)viewDidLoad {
@@ -163,7 +173,22 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
   UIMenu* visibleControllerMenu = [UIMenu menuWithTitle:@"Touch Controller" image:[UIImage systemImageNamed:@"gamecontroller"] identifier:nil options:0 children:visibleControllerActions];
   [controllerActions addObject:visibleControllerMenu];
 
-  if (wiimoteTouchPadAttached) {
+  // Under Beta the touch-IR and gyro-calibration menus below are replaced wholesale, because
+  // neither applies: touch IR is disabled while Beta's own pointer runs, and CoreMotion's fused
+  // stream is already bias-corrected so the "lay it flat and hold still" calibration has nothing
+  // left to measure. Showing controls that provably do nothing is worse than not showing them.
+  if (wiimoteTouchPadAttached && _usingBetaController) {
+    [controllerActions addObject:[self betaPresentationMenu]];
+
+    [controllerActions addObject:[UIAction actionWithTitle:@"Recenter Pointer"
+                                                    image:[UIImage systemImageNamed:@"scope"]
+                                               identifier:nil
+                                                  handler:^(UIAction*) {
+      [self promptBetaRecenter];
+    }]];
+  }
+
+  if (wiimoteTouchPadAttached && !_usingBetaController) {
     TCWiiTouchIRMode irMode = (TCWiiTouchIRMode)Config::Get(Config::MAIN_TOUCH_PAD_IR_MODE);
 
     // "Disabled" is the mode that hands pointing over to the Motion (gyro/IMU) system below -
@@ -348,6 +373,124 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
   self.navigationItem.leftBarButtonItem.menu = [UIMenu menuWithChildren:menuItems];
 }
 
+#pragma mark - Beta controller
+
+// The five presentations, as an in-game menu. Checkmarks the one actually in effect rather than
+// the one persisted in settings: Smart Orientation may have swapped portrait for landscape, and a
+// missing TV may have downgraded a TV presentation, and in both cases the player should see what
+// they've got rather than what they asked for.
+- (UIMenu*)betaPresentationMenu {
+  ControllerBetaCoordinator* coordinator = [ControllerBetaCoordinator shared];
+  const WiiRemotePresentation active = coordinator.activePresentation;
+  const bool hasExternalDisplay = [EmulationCoordinator shared].isExternalDisplayConnected;
+
+  NSMutableArray<UIMenuElement*>* actions = [[NSMutableArray alloc] init];
+
+  for (NSNumber* raw in @[
+         @(WiiRemotePresentationNormal),
+         @(WiiRemotePresentationOnDevicePortrait),
+         @(WiiRemotePresentationOnDeviceLandscape),
+         @(WiiRemotePresentationTvPortrait),
+         @(WiiRemotePresentationTvLandscape),
+       ]) {
+    const WiiRemotePresentation presentation = (WiiRemotePresentation)[raw integerValue];
+    const bool needsDisplay = presentation == WiiRemotePresentationTvPortrait ||
+                              presentation == WiiRemotePresentationTvLandscape;
+
+    NSString* title = [ControllerBetaNaming displayNameFor:presentation];
+
+    // Named rather than silently missing when there's no TV: hiding the TV presentations would
+    // leave someone who plugged a display in after booting wondering where the feature went, and
+    // the coordinator handles the no-TV case gracefully anyway (it downgrades to the matching
+    // on-device presentation until a display appears).
+    if (needsDisplay && !hasExternalDisplay) {
+      title = [title stringByAppendingString:@" (no display connected)"];
+    }
+
+    UIAction* action = [UIAction actionWithTitle:title image:nil identifier:nil handler:^(UIAction*) {
+      [coordinator applyPresentation:presentation];
+
+      [self recreateMenu];
+      [self.navigationController setNavigationBarHidden:true animated:true];
+    }];
+
+    action.state = presentation == active ? UIMenuElementStateOn : UIMenuElementStateOff;
+
+    [actions addObject:action];
+  }
+
+  return [UIMenu menuWithTitle:@"Wii Remote Presentation"
+                         image:[UIImage systemImageNamed:@"ipad.and.arrow.forward"]
+                    identifier:nil
+                       options:0
+                      children:actions];
+}
+
+// The Beta counterpart of promptTVGyroCalibration / promptHandheldRecenter. Same player intent --
+// "I am pointing at the screen now" -- but it captures the current attitude as the neutral centre
+// in VirtualWiiRemote's own solver instead of pulsing Dolphin's IMUPoint Recenter control, which
+// is disabled under Beta.
+- (void)promptBetaRecenter {
+  const WiiRemotePresentation active = [ControllerBetaCoordinator shared].activePresentation;
+  const bool onTV = active == WiiRemotePresentationTvPortrait ||
+                    active == WiiRemotePresentationTvLandscape;
+
+  NSString* message = onTV
+      ? @"Point the back of your device at the TV, holding it how you want to play, then tap "
+        @"Recenter. Wherever it's aimed now becomes the centre of the screen."
+      : @"Hold your device exactly how you want to play, then tap Recenter. Wherever it's aimed "
+        @"now becomes the centre of the screen, so you won't have to twist your wrists to reach "
+        @"the edges.";
+
+  UIAlertController* alert = [UIAlertController alertControllerWithTitle:@"Recenter Pointer"
+                                                                message:message
+                                                         preferredStyle:UIAlertControllerStyleAlert];
+
+  [alert addAction:[UIAlertAction actionWithTitle:@"Recenter"
+                                            style:UIAlertActionStyleDefault
+                                          handler:^(UIAlertAction*) {
+    [[ControllerBetaCoordinator shared] recenterPointer];
+  }]];
+  [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+
+  [self presentViewController:alert animated:YES completion:nil];
+}
+
+#pragma mark - ControllerBetaCoordinatorDelegate
+
+- (void)controllerBetaCoordinatorDidDetectExternalDisplay:(ControllerBetaCoordinator*)coordinator {
+  // Offered rather than applied. Someone may well have connected a display to record or mirror
+  // and have no intention of moving the game onto it, and silently relocating the picture off the
+  // screen they're looking at is a hard thing to undo mid-game.
+  UIAlertController* alert = [UIAlertController
+      alertControllerWithTitle:@"Use TV Mode?"
+                       message:@"A display is connected. TV Mode puts the game on it and turns "
+                               @"this device into a Wii Remote — point its back at the screen "
+                               @"to aim."
+                preferredStyle:UIAlertControllerStyleAlert];
+
+  [alert addAction:[UIAlertAction actionWithTitle:@"Use TV Mode"
+                                            style:UIAlertActionStyleDefault
+                                          handler:^(UIAlertAction*) {
+    // Whichever orientation matches how the device is being held when they accept, rather than
+    // making them choose between two options that differ only by how they're already holding it.
+    // Read at tap time, not at prompt time -- people put the iPad down to plug a cable in.
+    [coordinator applyPresentation:coordinator.isHeldLandscape ? WiiRemotePresentationTvLandscape
+                                                              : WiiRemotePresentationTvPortrait];
+    [self recreateMenu];
+  }]];
+  [alert addAction:[UIAlertAction actionWithTitle:@"Not Now" style:UIAlertActionStyleCancel handler:nil]];
+
+  [self presentViewController:alert animated:YES completion:nil];
+}
+
+- (void)controllerBetaCoordinator:(ControllerBetaCoordinator*)coordinator
+      didChangeActivePresentation:(WiiRemotePresentation)presentation {
+  // The menu checkmarks the *active* presentation, so it has to be rebuilt whenever that moves --
+  // including when Smart Orientation moves it without the player touching anything.
+  [self recreateMenu];
+}
+
 // Motion/gyro pointing only ever actually moves the in-game cursor while Touch IR Pointer is
 // set to "Disabled" (updatePointerValuesOnWiiTouchPads force-disables the IMUPoint group
 // whenever touch mode is Follow/Drag) - a user calibrating gyro clearly means to use it, so
@@ -449,6 +592,15 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
 
   [[TCDeviceMotion shared] statusBarOrientationChanged];
 
+  // Smart Orientation rides on the same hook the stock path uses to refresh TCDeviceMotion's
+  // orientation, so the two can never disagree about which way round landscape is. Notably NOT
+  // UIDevice.orientationDidChangeNotification, which needs
+  // beginGeneratingDeviceOrientationNotifications() and reports device rather than interface
+  // orientation.
+  if (_usingBetaController) {
+    [[ControllerBetaCoordinator shared] applyOrientation];
+  }
+
   [self updatePointerValuesOnWiiTouchPads];
 }
 
@@ -546,8 +698,17 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
       [[PreGameCalibrationPreferences shared] calibrationMode] == PointerCalibrationModePointAtTV) {
     _didApplyPreGameTVCalibration = true;
 
-    [self switchToMotionPointingIfNeeded];
-    [[TCDeviceMotion shared] recenterPointer];
+    if (_usingBetaController) {
+      // Beta has its own recenter, and it means something different: it captures the device's
+      // current attitude as the pointer's neutral centre in VirtualWiiRemote's own solver, rather
+      // than pulsing Dolphin's IMUPoint Recenter control (which is disabled under Beta anyway, so
+      // the pulse would go nowhere). Same player intent -- "I am pointing at my TV now" -- routed
+      // to whichever pointer is actually live.
+      [[ControllerBetaCoordinator shared] recenterPointer];
+    } else {
+      [self switchToMotionPointingIfNeeded];
+      [[TCDeviceMotion shared] recenterPointer];
+    }
   }
 }
 
@@ -567,11 +728,38 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
   TCDeviceMotion* motion = [TCDeviceMotion shared];
 
   if (touchPad == DOLEmulationVisibleTouchPadWiimote || touchPad == DOLEmulationVisibleTouchPadSidewaysWiimote || touchPad == DOLEmulationVisibleTouchPadClassic) {
-    [motion setMotionEnabled:true];
-    [motion setPort:4]; // Touchscreen device 4 is used for the Wiimote
-  } else {
+    // The one place the Normal/Beta gate actually decides which motion stack runs. Beta uses
+    // CoreMotion's fused device-motion stream (it needs a real attitude for the Apple Logo
+    // pointer); Normal uses the raw accelerometer/gyro streams it always has. Only one of them may
+    // be live at a time -- both write the same Wiimote IMU axes on the same port, so running both
+    // would have them fighting sample by sample.
+    if ([DOLControllerBetaGate isEnabled] && !_usingBetaController) {
+      [ControllerBetaCoordinator shared].delegate = self;
+
+      // -start returns false on a device that can't supply a fused attitude at all. Falling
+      // through to the stock path in that case is deliberate: a Beta setting is not worth handing
+      // someone a controller that doesn't move.
+      _usingBetaController = [[ControllerBetaCoordinator shared] start];
+
+      if (_usingBetaController) {
+        [self updatePointerValuesOnWiiTouchPads];
+      } else {
+        NSLog(@"Beta controller unavailable on this device, using the stock motion path");
+      }
+    }
+
+    if (!_usingBetaController) {
+      [motion setMotionEnabled:true];
+      [motion setPort:4]; // Touchscreen device 4 is used for the Wiimote
+    }
+  } else if (!_usingBetaController) {
     [motion setMotionEnabled:false];
   }
+  // Note the asymmetry: hiding the touch pad turns the stock motion stream off, but leaves Beta's
+  // running. That's not an oversight. In stock DolphiniOS the on-screen pad is the only thing
+  // motion serves, so hiding it means motion isn't wanted. Under Beta the device itself is the
+  // remote -- TV Landscape is specified as "minimal overlay on the iPad, game entirely on TV" --
+  // so hiding the overlay is exactly when motion matters most.
 
   NSInteger targetIdx = touchPad - 1;
 
@@ -600,10 +788,25 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
   TCWiiTouchIRMode irMode = TCWiiTouchIRModeNone;
 
   if ([self isWiimoteTouchPadAttached]) {
-    irMode = (TCWiiTouchIRMode)Config::Get(Config::MAIN_TOUCH_PAD_IR_MODE);
-
     ControllerEmu::ControlGroup* group = Wiimote::GetWiimoteGroup(0, WiimoteEmu::WiimoteGroup::IMUPoint);
-    group->enabled.SetValue(irMode == TCWiiTouchIRModeNone);
+
+    if (_usingBetaController) {
+      // Three things can drive the emulated Wii Remote's pointer and only one may at a time,
+      // because all three feed the same ControllerEmu::Cursor group: touch dragging (TCWiiPad),
+      // Dolphin's own IMUPoint, and -- under Beta -- VirtualWiiRemote's solved Apple Logo pointer.
+      // Beta wins while it's running, so both of the others have to stand down: IMUPoint is
+      // disabled and the touch pads are told the IR mode is None so they stop writing IR axes.
+      //
+      // This does mean turning Beta on takes away touch dragging. That's intended rather than
+      // incidental: all five Beta presentations are specified as motion-pointed, so touch IR is a
+      // Normal-mode feature. Switching back to Normal restores it untouched -- MAIN_TOUCH_PAD_IR_MODE
+      // is only read here, never written.
+      group->enabled.SetValue(false);
+    } else {
+      irMode = (TCWiiTouchIRMode)Config::Get(Config::MAIN_TOUCH_PAD_IR_MODE);
+
+      group->enabled.SetValue(irMode == TCWiiTouchIRModeNone);
+    }
   }
 
   for (int i = 0; i < [self.touchPads count]; i++) {
@@ -631,6 +834,15 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
   }
 
   [[TCDeviceMotion shared] setMotionEnabled:false];
+
+  // Tears the coordinator all the way down -- CoreMotion stream, observers, the VirtualWiiRemote
+  // itself -- so nothing Beta-related outlives the game. Keyed off the ivar rather than the gate so
+  // that a Beta session still stops cleanly even if the gate has since been switched off.
+  if (_usingBetaController) {
+    _usingBetaController = false;
+
+    [[ControllerBetaCoordinator shared] stop];
+  }
 }
 
 - (void)documentPicker:(UIDocumentPickerViewController*)controller didPickDocumentsAtURLs:(NSArray<NSURL*>*)urls {
