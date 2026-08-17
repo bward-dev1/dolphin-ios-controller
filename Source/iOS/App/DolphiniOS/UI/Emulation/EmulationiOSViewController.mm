@@ -40,6 +40,12 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
 
 @interface EmulationiOSViewController ()
 
+// Declared here because they're first messaged from earlier in this file than they're defined.
+- (UIMenu*)betaPresentationMenu;
+- (void)promptBetaRecenter;
+- (float)visibleTouchPadOpacity;
+- (void)refreshVisibleTouchPadOpacity;
+
 @end
 
 @implementation EmulationiOSViewController {
@@ -489,6 +495,8 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
   // The menu checkmarks the *active* presentation, so it has to be rebuilt whenever that moves --
   // including when Smart Orientation moves it without the player touching anything.
   [self recreateMenu];
+
+  [self refreshVisibleTouchPadOpacity];
 }
 
 // Motion/gyro pointing only ever actually moves the in-game cursor while Touch IR Pointer is
@@ -768,7 +776,7 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
     padView.userInteractionEnabled = i == targetIdx;
   }
 
-  const float targetOpacity = Config::Get(Config::MAIN_TOUCH_PAD_OPACITY);
+  const float targetOpacity = [self visibleTouchPadOpacity];
 
   [UIView animateWithDuration:0.5f animations:^{
     for (int i = 0; i < [self.touchPads count]; i++) {
@@ -778,6 +786,49 @@ typedef NS_ENUM(NSInteger, DOLEmulationVisibleTouchPad) {
   }];
 
   _visibleTouchPad = touchPad;
+}
+
+// Touch Pad Opacity exists so you can see the game *through* the controls. In the TV
+// presentations there is nothing behind them to see -- the game is on the TV and this device's
+// renderer view is blank, because EmulationCoordinator has handed the Metal layer to the external
+// scene. A half-transparent controller floating over black is just harder to read for no benefit,
+// so those two presentations get a fully opaque one.
+//
+// Not a new setting: it's derived from the presentation, because "the game isn't on this screen"
+// is a fact about the presentation rather than a preference. The user's Touch Pad Opacity is
+// untouched and comes straight back for every other presentation and for Normal mode.
+- (float)visibleTouchPadOpacity {
+  if (_usingBetaController) {
+    const WiiRemotePresentation active = [ControllerBetaCoordinator shared].activePresentation;
+
+    if (active == WiiRemotePresentationTvPortrait || active == WiiRemotePresentationTvLandscape) {
+      return 1.0f;
+    }
+  }
+
+  return Config::Get(Config::MAIN_TOUCH_PAD_OPACITY);
+}
+
+// Re-applies the opacity without going through updateVisibleTouchPadWithType:, which early-returns
+// when the pad type hasn't changed -- and switching between, say, On-Device Landscape and TV
+// Landscape changes the opacity while leaving the pad type alone.
+- (void)refreshVisibleTouchPadOpacity {
+  if (_visibleTouchPad == DOLEmulationVisibleTouchPadNone) {
+    return;
+  }
+
+  const NSInteger targetIdx = _visibleTouchPad - 1;
+  const float targetOpacity = [self visibleTouchPadOpacity];
+
+  [UIView animateWithDuration:0.25f animations:^{
+    for (int i = 0; i < [self.touchPads count]; i++) {
+      TCView* padView = self.touchPads[i];
+
+      if (i == targetIdx) {
+        padView.alpha = targetOpacity;
+      }
+    }
+  }];
 }
 
 - (void)updatePointerValuesOnWiiTouchPads {
