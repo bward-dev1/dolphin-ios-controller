@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		59D881AAE72F3D6A3E5C42AF /* ControllerBetaSettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C06C6A43DF3E6CCE690835F3 /* ControllerBetaSettingsViewController.swift */; };
+		1C09A8DC2FCBAC614EA2FB49 /* ControllerBetaGate.mm in Sources */ = {isa = PBXBuildFile; fileRef = 792B00625A8497F9C65BE9C5 /* ControllerBetaGate.mm */; };
 		BF0EEEC9F5B76D9C9ABA36B8 /* DeviceProfile.mm in Sources */ = {isa = PBXBuildFile; fileRef = BD8C13EEB5457814D5D70B94 /* DeviceProfile.mm */; };
 		9229160AE619D0C5EFF17924 /* OptimizeSettingsViewController.mm in Sources */ = {isa = PBXBuildFile; fileRef = D50D423ADD690585B3C6F110 /* OptimizeSettingsViewController.mm */; };
 		7193CF8239B710D8446A69F8 /* AppIconSelectorViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A6C57E62B275EF5A57FD699 /* AppIconSelectorViewController.swift */; };
@@ -275,6 +277,9 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		C06C6A43DF3E6CCE690835F3 /* ControllerBetaSettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerBetaSettingsViewController.swift; sourceTree = "<group>"; };
+		792B00625A8497F9C65BE9C5 /* ControllerBetaGate.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = ControllerBetaGate.mm; sourceTree = "<group>"; };
+		1C28D0FBFD71BDBC39C5D687 /* ControllerBetaGate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ControllerBetaGate.h; sourceTree = "<group>"; };
 		B900A7A227F25718000361DD /* Common.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Common.xcconfig; sourceTree = "<group>"; };
 		B900A7A627F26F61000361DD /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		B900A7AC27F27F36000361DD /* DolphinCoreService.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = DolphinCoreService.h; sourceTree = "<group>"; };
@@ -830,6 +835,7 @@
 				B950CFC82962562200197719 /* main.m */,
 				B9B2C64E288E1C4F00CB6569 /* MainDisplaySceneDelegate.swift */,
 				B900A7AF27F2866D000361DD /* UserFolderUtil.swift */,
+				F354848BFBD6AF17A21A4853 /* Controller */,
 			);
 			path = Common;
 			sourceTree = "<group>";
@@ -1216,6 +1222,7 @@
 				B9DC5FA628849467004BD94A /* Graphics */,
 				B904ACF22886AAED008B6BE9 /* Mapping */,
 				B99137AE28827AD200588446 /* SettingsRoot.storyboard */,
+				48FC85D24DF66F2E2DF6FF14 /* ControllerBeta */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -2011,6 +2018,23 @@
 			path = Alert;
 			sourceTree = "<group>";
 		};
+		F354848BFBD6AF17A21A4853 /* Controller */ = {
+			isa = PBXGroup;
+			children = (
+				1C28D0FBFD71BDBC39C5D687 /* ControllerBetaGate.h */,
+				792B00625A8497F9C65BE9C5 /* ControllerBetaGate.mm */,
+			);
+			path = Controller;
+			sourceTree = "<group>";
+		};
+		48FC85D24DF66F2E2DF6FF14 /* ControllerBeta */ = {
+			isa = PBXGroup;
+			children = (
+				C06C6A43DF3E6CCE690835F3 /* ControllerBetaSettingsViewController.swift */,
+			);
+			path = ControllerBeta;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -2322,6 +2346,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				59D881AAE72F3D6A3E5C42AF /* ControllerBetaSettingsViewController.swift in Sources */,
+				1C09A8DC2FCBAC614EA2FB49 /* ControllerBetaGate.mm in Sources */,
 				B950CFAA29616B4F00197719 /* MainSceneCoordinator.m in Sources */,
 				B904AD092887DAF1008B6BE9 /* ControllersTypeViewController.mm in Sources */,
 				B9913785288146D700588446 /* WiiAspectRatioViewController.mm in Sources */,

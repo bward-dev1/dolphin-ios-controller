@@ -23,6 +23,7 @@ class SettingsRootViewController : UITableViewController {
     case coverArt = 2
     case appIcon = 3
     case optimizeSettings = 4
+    case controller = 5
   }
 
   override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
@@ -41,6 +42,8 @@ class SettingsRootViewController : UITableViewController {
       navigationController?.pushViewController(AppIconSelectorViewController(), animated: true)
     case .optimizeSettings:
       navigationController?.pushViewController(OptimizeSettingsViewController(), animated: true)
+    case .controller:
+      navigationController?.pushViewController(ControllerBetaSettingsViewController(), animated: true)
     }
   }
   

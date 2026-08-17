@@ -14,4 +14,9 @@ extern const Info<int> MAIN_TOUCH_PAD_IR_MODE;
 extern const Info<int> MAIN_SELECTED_STATE_SLOT;
 extern const Info<int> MAIN_MUTE_SWITCH_MODE;
 
+// The one switch that separates "Normal" from "Beta". Off means the stock DolphiniOS
+// controller behaviour, byte for byte -- see DOLControllerBetaGate for the rules every
+// caller of this has to follow.
+extern const Info<bool> MAIN_CONTROLLER_BETA_ENABLED;
+
 }  // namespace Config

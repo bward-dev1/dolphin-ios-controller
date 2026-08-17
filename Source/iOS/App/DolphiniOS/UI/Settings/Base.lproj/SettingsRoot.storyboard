@@ -283,6 +283,32 @@
                                     </tableViewCell>
                                 </cells>
                             </tableViewSection>
+                            <tableViewSection headerTitle="Controller" footerTitle="Choose between the stock Wii Remote controls and the experimental Beta controller." id="Ctl-Br-sec">
+                                <cells>
+                                    <tableViewCell tag="5" clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" accessoryType="disclosureIndicator" indentationWidth="10" id="cTb-Ga-row">
+                                        <rect key="frame" x="20" y="443" width="374" height="43.5"/>
+                                        <autoresizingMask key="autoresizingMask"/>
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" preservesSuperviewLayoutMargins="YES" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="cTb-Ga-row" id="cTb-Ga-cnt">
+                                            <rect key="frame" x="0.0" y="0.0" width="345.5" height="43.5"/>
+                                            <autoresizingMask key="autoresizingMask"/>
+                                            <subviews>
+                                                <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="Controller Mode" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="cTb-Ga-lbl">
+                                                    <rect key="frame" x="20" y="11" width="337.5" height="21.5"/>
+                                                    <fontDescription key="fontDescription" type="system" pointSize="17"/>
+                                                    <nil key="textColor"/>
+                                                    <nil key="highlightedColor"/>
+                                                </label>
+                                            </subviews>
+                                            <constraints>
+                                                <constraint firstAttribute="bottomMargin" secondItem="cTb-Ga-lbl" secondAttribute="bottom" id="cTb-Ga-c01"/>
+                                                <constraint firstItem="cTb-Ga-lbl" firstAttribute="top" secondItem="cTb-Ga-cnt" secondAttribute="topMargin" id="cTb-Ga-c02"/>
+                                                <constraint firstAttribute="trailingMargin" secondItem="cTb-Ga-lbl" secondAttribute="trailing" constant="-20" id="cTb-Ga-c03"/>
+                                                <constraint firstAttribute="leadingMargin" secondItem="cTb-Ga-lbl" secondAttribute="leading" id="cTb-Ga-c04"/>
+                                            </constraints>
+                                        </tableViewCellContentView>
+                                    </tableViewCell>
+                                </cells>
+                            </tableViewSection>
                             <tableViewSection headerTitle="Performance" footerTitle="Detects this device's capabilities and applies matching Dolphin settings for it." id="Prf-rm-sec">
                                 <cells>
                                     <tableViewCell tag="4" clipsSubviews="YES" contentMode="scaleToFill" preservesSuperviewLayoutMargins="YES" selectionStyle="default" accessoryType="disclosureIndicator" indentationWidth="10" id="oPt-mZ-row">

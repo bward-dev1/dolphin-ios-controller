@@ -12,4 +12,9 @@ const Info<int> MAIN_TOUCH_PAD_IR_MODE{{System::Main, "iOS", "TouchPadIRMode"}, 
 const Info<int> MAIN_SELECTED_STATE_SLOT{{System::Main, "iOS", "SelectedStateSlot"}, 1};
 const Info<int> MAIN_MUTE_SWITCH_MODE{{System::Main, "iOS", "MuteSwitchMode"}, 0};
 
+// Defaults to false, and that default matters: an existing install that has never heard of
+// this key has to come up in Normal mode, running exactly the code it ran before.
+const Info<bool> MAIN_CONTROLLER_BETA_ENABLED{{System::Main, "iOS", "ControllerBetaEnabled"},
+                                              false};
+
 }  // namespace Config
